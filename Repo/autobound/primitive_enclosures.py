@@ -105,6 +105,58 @@ swish_enclosure = functools.partial(get_elementwise_taylor_enclosure,
                                     elementwise_functions.SWISH)
 
 
+def _pow_kth_deriv_sign(x_sign, p, k):
+  """Computes the sign of the kth derivative of x^p for a given sign of x.
+
+  The kth derivative of x^p is: p * (p-1) * ... * (p-k+1) * x^(p-k).
+
+  Args:
+    x_sign: Sign of x (-1 or 1)
+    p: The exponent
+    k: The derivative order
+
+  Returns:
+    The sign of the kth derivative: -1, 0, or 1
+  """
+  # Special case: if p is a non-negative integer and k > p, the derivative is 0
+  if int(p) == p and p >= 0 and k > p:
+    return 0
+
+  # Calculate the sign of the coefficient: p * (p-1) * ... * (p-k+1)
+  coeff_sign = 1
+  for i in range(k):
+    factor = p - i
+    if factor == 0:
+      return 0  # Coefficient becomes 0
+    elif factor < 0:
+      coeff_sign *= -1
+
+  # Now we need to determine the sign of x^(p-k)
+  remaining_exp = p - k
+
+  # If remaining exponent is 0, x^0 = 1 (positive)
+  if remaining_exp == 0:
+    x_power_sign = 1
+  # If remaining exponent is an even integer, x^(p-k) is always positive
+  elif int(remaining_exp) == remaining_exp and int(remaining_exp) % 2 == 0:
+    x_power_sign = 1
+  # If remaining exponent is an odd integer, sign depends on sign of x
+  elif int(remaining_exp) == remaining_exp and int(remaining_exp) % 2 == 1:
+    x_power_sign = x_sign
+  # For non-integer exponents
+  else:
+    if remaining_exp < 0 or x_sign < 0:
+      # For negative exponents or negative x with non-integer power
+      if x_sign < 0:
+        return 0  # undefined for negative x
+      else:
+        x_power_sign = 1  # positive x with any real exponent is positive
+    else:
+      x_power_sign = 1
+
+  return coeff_sign * x_power_sign
+
+
 # TODO(mstreeter): we could implement pow_enclosure in terms of
 # get_elementwise_taylor_enclosure if we allowed FunctionIds to have parameters
 # (in this case, the exponent).
@@ -120,9 +172,7 @@ def pow_enclosure(exponent: float,
     # Note: the next line can sometimes generate bogus RuntimeWarnings when
     # using Numpy.  This seems to be a bug in Numpy, as even doing
     # np.array(2.)**-1 generates the same RuntimeWarning.
-    factorial = 1
-    for j in range(1, i):
-      factorial *= j
+    factorial = math.factorial(i) if i > 0 else 1
     taylor_coefficients_at_x0.append(c * x0**(exponent - i) / factorial)
     c *= exponent - i
 
@@ -133,22 +183,19 @@ def pow_enclosure(exponent: float,
       )
       for increasing in [False, True]
   ]
-  c_pos = 1.
-  for i in range(degree + 1):
-    c_pos *= exponent - i
 
-  if int(exponent) != exponent and exponent > 0 and exponent < 1:
-    enc_pos = enc_decreasing  # Wrong: should depend on c_pos sign
-  else:
-    enc_pos = (enc_increasing if c_pos >= 0 else enc_decreasing)
+  # Determine if the (degree+1)th derivative is positive or negative for x > 0
+  # This tells us if the degree-th derivative is increasing or decreasing
+  deriv_sign_pos = _pow_kth_deriv_sign(1, exponent, degree + 1)
+  enc_pos = enc_increasing if deriv_sign_pos >= 0 else enc_decreasing
 
   if int(exponent) != exponent:
+    # For non-integer exponents, x^p is undefined for x < 0
     enc_neg = None
   else:
-    c_neg = c_pos
-    if (exponent - (degree + 1)) % 2 != 0:
-      c_neg = -c_neg
-    enc_neg = (enc_increasing if c_neg >= 0 else enc_decreasing)
+    # For integer exponents, determine sign for negative x
+    deriv_sign_neg = _pow_kth_deriv_sign(-1, exponent, degree + 1)
+    enc_neg = enc_increasing if deriv_sign_neg >= 0 else enc_decreasing
 
   def interval_endpoint(i):
     """Returns left (i == 0) or right (i == 1) endpoint of interval."""
