@@ -114,3 +114,30 @@ To cite this repository:
 ```
 
 *This is not an officially supported Google product.*
+
+# Turn 1: Model B response
+
+## Implementation Plan
+
+Based on my analysis, I need to:
+
+1. **Add the `_pow_kth_deriv_sign()` helper function** that:
+- Takes parameters: `x_sign` (sign of x: 1 or -1), `p` (exponent), `k` (derivative order)
+- Returns the sign of the k-th derivative of x^p evaluated at a point with sign x_sign
+- The k-th derivative of x^p is: p * (p-1) * ... * (p-k+1) * x^(p-k)
+- Need to handle:
+- When k > p for integer p (derivative is 0)
+- Sign of the coefficient product p * (p-1) * ... * (p-k+1)
+- Sign of x^(p-k) based on x_sign and whether (p-k) is even/odd
+
+2. **Replace manual factorial computation with `math.factorial()`**:
+- Current code has a loop computing factorials manually
+- Should use `math.factorial()` instead
+
+3. **Fix the logic for determining increasing/decreasing derivatives**:
+- Currently uses `c_pos` and `c_neg` variables to track signs
+- Should use the new `_pow_kth_deriv_sign()` function to determine if derivatives are increasing or decreasing
+
+4. **Improve handling of negative numbers with non-integer powers**:
+- Current code has some issues with this case
+- Need to ensure proper handling when exponent is not an integer
