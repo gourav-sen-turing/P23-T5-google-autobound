@@ -114,3 +114,49 @@ To cite this repository:
 ```
 
 *This is not an officially supported Google product.*
+
+
+# Turn 1: Model A response
+
+# Implementation Approach
+
+## Step 1: Implement `_pow_kth_deriv_sign` function
+
+This function computes the sign of the kth derivative of x^p for a given x_sign.
+
+Mathematical background:
+- The kth derivative of x^p is: p * (p-1) * ... * (p-k+1) * x^(p-k)
+- For integer p, this is 0 when k > p
+- The sign depends on:
+  1. The sign of the coefficient: p * (p-1) * ... * (p-k+1)
+  2. The sign of x^(p-k), which depends on sign(x) and parity of (p-k)
+
+Implementation logic:
+1. If k > p and p is integer: return 0
+2. Calculate coefficient sign by checking product p * (p-1) * ... * (p-k+1)
+3. If p-k is non-integer and x_sign < 0: undefined (but tests suggest we handle it)
+4. If (p-k) is even: x^(p-k) is always positive
+5. If (p-k) is odd: x^(p-k) has same sign as x
+6. Return product of coefficient sign and power sign
+
+## Step 2: Fix factorial calculation
+
+Change from:
+```python
+factorial = 1
+for j in range(1, i):
+    factorial *= j
+```
+
+To:
+```python
+factorial = math.factorial(i)
+```
+
+## Step 3: Rewrite the monotonicity logic
+
+Use `_pow_kth_deriv_sign` to determine if the degree-th derivative is increasing or decreasing at positive and negative x values.
+
+## Step 4: Clean up the enclosure selection logic
+
+Simplify how we choose between enc_increasing and enc_decreasing for positive and negative x regions.
