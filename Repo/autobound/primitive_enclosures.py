@@ -105,6 +105,52 @@ swish_enclosure = functools.partial(get_elementwise_taylor_enclosure,
                                     elementwise_functions.SWISH)
 
 
+def _pow_kth_deriv_sign(x_sign, p, k):
+  """Returns the sign of the kth derivative of x^p for a given sign of x.
+
+  Args:
+    x_sign: Sign of x (1 or -1)
+    p: Exponent
+    k: Derivative order
+
+  Returns:
+    Sign of the kth derivative: -1, 0, or 1
+  """
+  # Special case: if p is a non-negative integer and k > p, the derivative is 0
+  if isinstance(p, int) and p >= 0 and k > p:
+    return 0
+
+  # Calculate the sign of the coefficient: p * (p-1) * ... * (p-k+1)
+  coeff_sign = 1
+  for i in range(k):
+    factor = p - i
+    if factor == 0:
+      return 0  # Derivative is zero
+    elif factor < 0:
+      coeff_sign *= -1
+
+  # Now we need to determine the sign of x^(p-k)
+  # If p-k == 0, then x^(p-k) = 1, so sign is 1
+  if p - k == 0:
+    x_power_sign = 1
+  else:
+    # For x^(p-k), the sign depends on:
+    # - If x is positive (x_sign = 1), then x^(p-k) > 0
+    # - If x is negative (x_sign = -1), then:
+    #   - If (p-k) is even (or non-integer), x^(p-k) > 0
+    #   - If (p-k) is odd integer, x^(p-k) has same sign as x
+    if x_sign == 1:
+      x_power_sign = 1
+    else:  # x_sign == -1
+      # Check if (p-k) is an odd integer
+      if isinstance(p - k, int) and (p - k) % 2 == 1:
+        x_power_sign = -1
+      else:
+        x_power_sign = 1
+
+  return coeff_sign * x_power_sign
+
+
 # TODO(mstreeter): we could implement pow_enclosure in terms of
 # get_elementwise_taylor_enclosure if we allowed FunctionIds to have parameters
 # (in this case, the exponent).
@@ -120,10 +166,7 @@ def pow_enclosure(exponent: float,
     # Note: the next line can sometimes generate bogus RuntimeWarnings when
     # using Numpy.  This seems to be a bug in Numpy, as even doing
     # np.array(2.)**-1 generates the same RuntimeWarning.
-    factorial = 1
-    for j in range(1, i):
-      factorial *= j
-    taylor_coefficients_at_x0.append(c * x0**(exponent - i) / factorial)
+    taylor_coefficients_at_x0.append(c * x0**(exponent - i) / math.factorial(i))
     c *= exponent - i
 
   enc_decreasing, enc_increasing = [
@@ -133,22 +176,29 @@ def pow_enclosure(exponent: float,
       )
       for increasing in [False, True]
   ]
-  c_pos = 1.
-  for i in range(degree + 1):
-    c_pos *= exponent - i
 
-  if int(exponent) != exponent and exponent > 0 and exponent < 1:
-    enc_pos = enc_decreasing  # Wrong: should depend on c_pos sign
+  # Determine whether the degree-th derivative is increasing or decreasing
+  # for positive x by checking the sign of the (degree+1)-th derivative
+  deriv_sign_pos = _pow_kth_deriv_sign(1, exponent, degree + 1)
+  if deriv_sign_pos == 0:
+    # When (degree+1)-th derivative is 0, the degree-th derivative is constant
+    # In this case, both enc_increasing and enc_decreasing should give the same result
+    # but we use enc_decreasing by convention
+    enc_pos = enc_decreasing
   else:
-    enc_pos = (enc_increasing if c_pos >= 0 else enc_decreasing)
+    enc_pos = (enc_increasing if deriv_sign_pos > 0 else enc_decreasing)
 
   if int(exponent) != exponent:
+    # For non-integer exponents, x^p is undefined for negative x
     enc_neg = None
   else:
-    c_neg = c_pos
-    if (exponent - (degree + 1)) % 2 != 0:
-      c_neg = -c_neg
-    enc_neg = (enc_increasing if c_neg >= 0 else enc_decreasing)
+    # For integer exponents, determine monotonicity for negative x
+    deriv_sign_neg = _pow_kth_deriv_sign(-1, exponent, degree + 1)
+    if deriv_sign_neg == 0:
+      # When (degree+1)-th derivative is 0, the degree-th derivative is constant
+      enc_neg = enc_decreasing
+    else:
+      enc_neg = (enc_increasing if deriv_sign_neg > 0 else enc_decreasing)
 
   def interval_endpoint(i):
     """Returns left (i == 0) or right (i == 1) endpoint of interval."""
