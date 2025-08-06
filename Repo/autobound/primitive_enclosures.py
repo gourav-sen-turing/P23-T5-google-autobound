@@ -108,6 +108,9 @@ swish_enclosure = functools.partial(get_elementwise_taylor_enclosure,
 def _pow_kth_deriv_sign(x_sign, p, k):
   """Returns the sign of the kth derivative of x^p for a given sign of x.
 
+  For f(x) = x^p, the k-th derivative is:
+  f^(k)(x) = p * (p-1) * ... * (p-k+1) * x^(p-k)
+
   Args:
     x_sign: Sign of x (1 or -1)
     p: Exponent
@@ -116,38 +119,37 @@ def _pow_kth_deriv_sign(x_sign, p, k):
   Returns:
     Sign of the kth derivative: -1, 0, or 1
   """
-  # Special case: if p is a non-negative integer and k > p, the derivative is 0
-  if isinstance(p, int) and p >= 0 and k > p:
+  # Calculate the coefficient: p * (p-1) * ... * (p-k+1)
+  coeff = 1
+  for i in range(k):
+    coeff *= (p - i)
+
+  # If coefficient is 0, the derivative is 0
+  if coeff == 0:
     return 0
 
-  # Calculate the sign of the coefficient: p * (p-1) * ... * (p-k+1)
-  coeff_sign = 1
-  for i in range(k):
-    factor = p - i
-    if factor == 0:
-      return 0  # Derivative is zero
-    elif factor < 0:
-      coeff_sign *= -1
+  # Determine the sign of the coefficient
+  coeff_sign = 1 if coeff > 0 else -1
 
-  # Now we need to determine the sign of x^(p-k)
-  # If p-k == 0, then x^(p-k) = 1, so sign is 1
-  if p - k == 0:
+  # Determine the sign of x^(p-k)
+  power = p - k
+
+  if power == 0:
+    # x^0 = 1, always positive
+    x_power_sign = 1
+  elif x_sign == 1:
+    # For x > 0, x^(any power) is positive
     x_power_sign = 1
   else:
-    # For x^(p-k), the sign depends on:
-    # - If x is positive (x_sign = 1), then x^(p-k) > 0
-    # - If x is negative (x_sign = -1), then:
-    #   - If (p-k) is even (or non-integer), x^(p-k) > 0
-    #   - If (p-k) is odd integer, x^(p-k) has same sign as x
-    if x_sign == 1:
+    # For x < 0 (x_sign == -1):
+    # - If power is an odd integer, x^power has same sign as x (negative)
+    # - Otherwise (even integer or non-integer), x^power is positive
+    if isinstance(power, (int, float)) and power == int(power) and int(power) % 2 == 1:
+      x_power_sign = -1
+    else:
       x_power_sign = 1
-    else:  # x_sign == -1
-      # Check if (p-k) is an odd integer
-      if isinstance(p - k, int) and (p - k) % 2 == 1:
-        x_power_sign = -1
-      else:
-        x_power_sign = 1
 
+  # Return the combined sign
   return coeff_sign * x_power_sign
 
 
