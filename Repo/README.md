@@ -141,3 +141,55 @@ Based on my analysis, I need to:
 4. **Improve handling of negative numbers with non-integer powers**:
 - Current code has some issues with this case
 - Need to ensure proper handling when exponent is not an integer
+
+# Turn 3: Model B response
+
+## The response given by model B was exact same as previous, here's the summary
+
+# Summary of Changes in primitive_enclosures.py
+
+Based on my analysis of the code and tests, the following changes have been successfully implemented:
+
+## 1. Added `_pow_kth_deriv_sign()` Helper Function
+
+A new function was added (lines 108-151) that computes the sign of the kth derivative of x^p:
+
+```python
+def _pow_kth_deriv_sign(x_sign, p, k):
+  """Returns the sign of the kth derivative of x^p for a given sign of x."""
+```
+
+Key features:
+
+- Correctly handles the special case where derivatives become 0 for non-negative integer exponents when k > p
+- Calculates the sign of the coefficient p*(p-1)*...*(p-k+1)
+- Determines the sign of x^(p-k) based on whether p-k is odd or even
+- Returns the combined sign (-1, 0, or 1)
+
+## 2. Updated `pow_enclosure()` Function
+
+### a) Factorial Calculation (line 169)
+
+- Changed from manual loop calculation to using `math.factorial(i)`
+- This simplifies the code and makes it more readable
+
+### b) Derivative Monotonicity Logic (lines 180-201)
+
+- Uses `_pow_kth_deriv_sign()` to determine whether the degree-th derivative is increasing or decreasing
+- Separate logic for positive x (using `deriv_sign_pos`) and negative x (using `deriv_sign_neg`)
+- Special handling when the derivative sign is 0 (constant derivative)
+
+### c) Better Handling of Edge Cases
+
+- Maintains proper handling of non-integer exponents with negative bases
+- Clear separation between integer and non-integer exponent cases
+
+## Results
+
+All 64 tests are now passing, including:
+
+- 20 `test_pow_kth_deriv_sign` tests that verify the helper function
+- `test_enclosure_generator_cbrt` for cube root function
+- All other pow_enclosure related tests
+
+The implementation successfully addresses all the requirements mentioned in the PR description while maintaining backward compatibility.
