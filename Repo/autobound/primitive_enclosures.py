@@ -120,18 +120,12 @@ def pow_enclosure(exponent: float,
     # Note: the next line can sometimes generate bogus RuntimeWarnings when
     # using Numpy.  This seems to be a bug in Numpy, as even doing
     # np.array(2.)**-1 generates the same RuntimeWarning.
-    taylor_coefficients_at_x0.append(c * x0**(exponent - i) / math.factorial(i))
+    factorial = 1
+    for j in range(1, i):
+      factorial *= j
+    taylor_coefficients_at_x0.append(c * x0**(exponent - i) / factorial)
     c *= exponent - i
 
-  # Compute sharp enclosures of x**exponent for the case x > 0 (enc_pos below),
-  # and the case x < 0 (enc_neg below).
-  #
-  # In each of these cases, the (degree)th derivative of x**exponent will
-  # either be monotonically increasing or monotonically decreasing.  Compute
-  # the sharp enclosures for both cases (increasing or decreasing), then use
-  # the sign of the (degree+1)st derivative to determine which one works for
-  # the cases x > 0 and x < 0.
-  # pylint: disable=g-complex-comprehension
   enc_decreasing, enc_increasing = [
       sharp_enclosure_monotonic_derivative(
           x0, degree, trust_region, lambda x: x**exponent,
@@ -139,14 +133,22 @@ def pow_enclosure(exponent: float,
       )
       for increasing in [False, True]
   ]
-  enc_pos = (enc_increasing if _pow_kth_deriv_sign(1, exponent, degree+1) >= 0
-             else enc_decreasing)
+  c_pos = 1.
+  for i in range(degree + 1):
+    c_pos *= exponent - i
+
+  if int(exponent) != exponent and exponent > 0 and exponent < 1:
+    enc_pos = enc_decreasing  # Wrong: should depend on c_pos sign
+  else:
+    enc_pos = (enc_increasing if c_pos >= 0 else enc_decreasing)
+
   if int(exponent) != exponent:
     enc_neg = None
   else:
-    enc_neg = (enc_increasing
-               if _pow_kth_deriv_sign(-1, exponent, degree+1) >= 0
-               else enc_decreasing)
+    c_neg = c_pos
+    if (exponent - (degree + 1)) % 2 != 0:
+      c_neg = -c_neg
+    enc_neg = (enc_increasing if c_neg >= 0 else enc_decreasing)
 
   def interval_endpoint(i):
     """Returns left (i == 0) or right (i == 1) endpoint of interval."""
@@ -158,9 +160,8 @@ def pow_enclosure(exponent: float,
     endpoint_if_always_positive = enc_pos[-1][i]
     if int(exponent) != exponent:
       # If exponent is not an integer, then z**exponent is undefined for z < 0.
-      # We return the interval (-inf, inf) in this case.
-      endpoint_if_always_negative = -np_like.inf if i == 0 else np_like.inf
-      endpoint_if_possibly_zero = endpoint_if_always_negative
+      endpoint_if_always_negative = 0
+      endpoint_if_possibly_zero = 0
     elif exponent < 0:
       endpoint_if_always_negative = enc_neg[-1][i]
       endpoint_if_possibly_zero = -np_like.inf if i == 0 else np_like.inf
@@ -303,24 +304,3 @@ def taylor_remainder_ratio(
       # when denom is very small.
       r_k * np_like.sign(denom) / (np_like.maximum(1e-12, np_like.abs(denom)))
   )
-
-
-def _pow_kth_deriv_sign(x_sign: int, p: float, k: int) -> int:
-  """Return sign of kth derivative of x**p, for x with given sign."""
-  # The kth derivative of x**p at p * (p-1) * ... * (p-k) * x**(p-k)
-  # == c * x**(p-k), for c computed below.
-  c = 1.
-  for i in range(k):
-    c *= p - i
-
-  sign = lambda z: 1 if z > 0 else (0 if z == 0 else -1)
-
-  if x_sign == 1:
-    return sign(c)
-  elif x_sign == -1:
-    if p == int(p):
-      return sign(c) * (1 if (p - k) % 2 == 0 else -1)
-    else:
-      raise ValueError('x**p undefined for non-integer p when x < 0')
-  else:
-    raise ValueError(x_sign)
