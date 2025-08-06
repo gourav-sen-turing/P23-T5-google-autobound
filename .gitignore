@@ -1,0 +1,41 @@
+# Compiled python modules.
+*.pyc
+
+# Byte-compiled
+__pycache__/
+.cache/
+
+# Poetry, setuptools, PyPI distribution artifacts.
+/*.egg-info
+.eggs/
+build/
+dist/
+poetry.lock
+
+# Tests
+.pytest_cache/
+
+# Type checking
+.pytype/
+
+# Other
+*.DS_Store
+
+# PyCharm
+.idea
+
+# Virtual environment
+venv/
+
+# Additional Python patterns
+*.pyo
+*.pyd
+.Python
+.tox
+.vscode/
+htmlcov
+.coverage
+.ipynb_checkpoints/
+MANIFEST
+coverage
+*.so

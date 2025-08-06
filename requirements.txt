@@ -1,0 +1,9 @@
+# Editable Git install with no remote (autobound==0.1.2)
+-e /home/rails/P23/T5-google-autobound/TaskFolder/Repo
+jax==0.6.2
+jaxlib==0.6.2
+ml_dtypes==0.5.3
+numpy==2.2.6
+opt_einsum==3.4.0
+scipy==1.15.3
+typing_extensions==4.14.1
